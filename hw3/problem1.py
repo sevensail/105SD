@@ -1,5 +1,9 @@
 import math
 import numpy as np
+import os
+from time import gmtime, strftime
+
+
 #-------------------------------------------------------------------------
 '''
     Problem 1: User-based  recommender systems
@@ -41,7 +45,7 @@ def cosine_similarity(RA, RB):
     d  = (math.sqrt(An) * math.sqrt(Bn))
     if d==0:
         return 0
-    S = dotpro / d
+    S = float(dotpro / d)
     #########################################
     return S
 
@@ -82,7 +86,7 @@ def user_similarity(R, j, idx):
     ## INSERT YOUR CODE HERE
     sim = []
     for i in range(len(idx)):
-        sim.append(cosine_similarity(R[:,j], R[:,idx[i]]).item())
+        sim.append(cosine_similarity(R[:,j], R[:,idx[i]]))
     #########################################
     return sim
 
@@ -111,20 +115,37 @@ def user_based_prediction(R, i_movie, j_user, K=5):
     user_ind = find_users(R, i_movie)
     if len(user_ind)==0:
         return 3.0
-
     user_sim = user_similarity(R, j_user, user_ind)
-    for i in range(len(user_sim)):
+    '''for i in range(len(user_sim)):
         for k in range( len(user_sim) - 1, i, -1):
             if ( user_sim[k] > user_sim[k - 1] ):
                 swap( user_sim, k, k - 1 )
                 swap1(user_ind, k, k-1)
     cand = K if len(user_ind)>K else len(user_ind)
+
     total = 0.
     weight = 0.
     for i in range(cand):
         total += user_sim[i] * R[i_movie, user_ind[i]]
-        weight += user_sim[i]
+        weight += user_sim[i]'''
 
+    cand = K if len(user_ind)>K else len(user_ind)
+    total = 0.
+    weight = 0.
+    sim_cand = []
+    user_cand = []
+    for i in range(cand):
+        cur_max = 0
+        cur_ind = 0
+        for j in range(len(user_sim)):
+            if user_sim[j]> cur_max and j not in user_cand:
+                cur_max = user_sim[j]
+                cur_ind = j
+        sim_cand.append(cur_max)
+        user_cand.append(cur_ind)
+    for i in range(cand):
+        total += sim_cand[i] * R[i_movie, user_ind[user_cand[i]]]
+        weight += sim_cand[i]
     p = total / weight
     #########################################
     return p
@@ -142,12 +163,12 @@ def compute_RMSE(ratings_pred, ratings_real):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-
-
-
-
-
-
+    r = 0.
+    total = 0.
+    for i in range(len(ratings_real)):
+        r += (ratings_pred[i] - ratings_real[i]) ** 2
+        total += 1
+    RMSE = math.sqrt(r/total)
     #########################################
     return RMSE
 
@@ -166,13 +187,14 @@ def load_rating_matrix(filename = 'movielens_train.csv'):
     #########################################
     ## INSERT YOUR CODE HERE
 
-
-
-
-
-
-
-
+    r = np.genfromtxt(os.path.dirname(os.path.abspath(__file__))+'/'+filename, delimiter=',', dtype=float)
+    ulen = int(np.amax(r[:, 0]))
+    mlen = int(np.amax(r[:, 1]))
+    R = np.zeros(shape = (mlen, ulen))
+    for i in range(len(r)):
+        uid = int(r[i, 0])
+        mid = int(r[i, 1])
+        R[mid-1, uid-1] = r[i, 2]
     #########################################
     return R
 
@@ -191,11 +213,12 @@ def load_test_data(filename = 'movielens_test.csv'):
     '''
     #########################################
     ## INSERT YOUR CODE HERE
-
-
-
-
-
+    R = np.genfromtxt(os.path.dirname(os.path.abspath(__file__))+'/'+filename, delimiter=',', dtype=float)
+    m_ids = R[:, 1].tolist()
+    u_ids = R[:, 0].tolist()
+    ratings = R[:, 2].tolist()
+    m_ids = [int(i-1) for i in m_ids]
+    u_ids = [int(i-1) for i in u_ids]
     #########################################
     return m_ids, u_ids, ratings
 
@@ -220,15 +243,17 @@ def movielens_user_based(train_file='movielens_train.csv', test_file ='movielens
 
     # load test set
     m_ids, u_ids,ratings_real = load_test_data(test_file)
-
+    #print(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
     # predict on test set
     ratings_pred = []
     for i,j in zip(m_ids, u_ids):# get one pair (movie, user) from the two lists
         p = user_based_prediction(R,i,j,K) # predict the rating of j-th user's rating on i-th movie
         ratings_pred.append(p)
-
+    #print(count)
+    #print(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
     # compute RMSE
     RMSE = compute_RMSE(ratings_pred,ratings_real)
+    #print(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
     return  RMSE
 
 def swap( A, i, j ):
